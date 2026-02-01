@@ -1,0 +1,40 @@
+[package]
+name = "leech-core"
+version = "1.0.0"
+edition = "2021"
+
+[dependencies]
+tokio = { version = "1.35", features = ["full"] }
+# FIX: 'native-tls' handles unexpected server closes better than rustls
+reqwest = { version = "0.12", default-features = false, features = ["native-tls", "stream", "gzip", "json", "socks", "cookies"] }
+bytes = "1.5"
+tokio-util = { version = "0.7", features = ["io"] }
+parking_lot = "0.12"
+anyhow = "1.0"
+thiserror = "1.0"
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+url = "2.4"
+lru = "0.10"
+dashmap = "5.5"
+futures-util = { version = "0.3", features = ["async-await"] }
+rand = { version = "0.8", features = ["small_rng"] }
+async-trait = "0.1"
+regex = "1.10"
+tracing = "0.1"
+tracing-subscriber = "0.3"
+axum = "0.7" 
+tower-http = { version = "0.5", features = ["trace"] }
+lol_html = "0.4"
+trust-dns-resolver = "0.23"
+chrono = "0.4"
+
+[dev-dependencies]
+tempfile = "3.8"
+
+[profile.release]
+opt-level = 3
+lto = "fat"
+codegen-units = 1
+panic = "abort"
+strip = true
