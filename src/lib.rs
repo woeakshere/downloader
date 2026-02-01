@@ -6,6 +6,8 @@ pub mod error;
 pub mod metrics;
 pub mod strategies;
 pub mod tcp_optimizer;
+pub mod static_analysis;
+pub mod bypass;
 
 pub use crate::engine::LeechEngine;
 pub use crate::config::{DownloadConfig, Strategy};

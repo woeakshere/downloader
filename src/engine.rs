@@ -16,6 +16,8 @@ use crate::metrics::DownloadMetrics;
 use crate::strategies::StrategyExecutor;
 use crate::tcp_optimizer::OptimizedClientBuilder;
 use crate::extractor::LinkExtractor;
+use crate::static_analysis::StaticAnalyzer;
+use crate::bypass::BypassSystem;
 
 pub struct LeechEngine {
     client: Client,
@@ -26,6 +28,8 @@ pub struct LeechEngine {
     chunk_semaphore: Arc<Semaphore>,
     strategy_cache: Arc<RwLock<lru::LruCache<String, Strategy>>>,
     extractor: Arc<LinkExtractor>,
+    static_analyzer: Arc<StaticAnalyzer>,
+    bypass_system: Arc<BypassSystem>,
 }
 
 impl LeechEngine {
@@ -40,6 +44,8 @@ impl LeechEngine {
         let chunk_semaphore = Arc::new(Semaphore::new(config.max_concurrent_chunks));
         let cache_cap = NonZeroUsize::new(100).expect("Invalid cache capacity");
         let extractor = Arc::new(LinkExtractor::new(client.clone()));
+        let static_analyzer = Arc::new(StaticAnalyzer::new());
+        let bypass_system = Arc::new(BypassSystem::new());
         
         Self {
             client,
@@ -50,6 +56,8 @@ impl LeechEngine {
             chunk_semaphore,
             strategy_cache: Arc::new(RwLock::new(lru::LruCache::new(cache_cap))),
             extractor,
+            static_analyzer,
+            bypass_system,
         }
     }
     
@@ -144,8 +152,9 @@ impl LeechEngine {
             if let Some(cached) = self.strategy_cache.write().get(d) { return Ok(*cached); }
         }
         
+        let headers = self.bypass_system.generate_headers(url.as_str());
         let head_result = self.client.head(url.as_str())
-            .header("User-Agent", &self.config.user_agent)
+            .headers(headers)
             .send().await;
         
         let (len, ranges, is_html) = match head_result {

@@ -2,7 +2,9 @@ use crate::error::DownloadError;
 use regex::Regex;
 use reqwest::Client;
 use serde::{Deserialize, Serialize};
-use serde_json::Value;
+use crate::static_analysis::StaticAnalyzer;
+use crate::bypass::BypassSystem;
+use std::sync::Arc;
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct ExtractedMedia {
@@ -32,6 +34,8 @@ struct ExtractionRules {
 pub struct LinkExtractor {
     client: Client,
     rules: Option<ExtractionRules>,
+    static_analyzer: Arc<StaticAnalyzer>,
+    bypass_system: Arc<BypassSystem>,
 }
 
 impl LinkExtractor {
@@ -40,13 +44,18 @@ impl LinkExtractor {
             .ok()
             .and_then(|s| serde_json::from_str(&s).ok());
         
-        Self { client, rules }
+        Self { 
+            client, 
+            rules,
+            static_analyzer: Arc::new(StaticAnalyzer::new()),
+            bypass_system: Arc::new(BypassSystem::new()),
+        }
     }
 
     pub async fn extract(&self, input_url: &str) -> Result<ExtractedMedia, DownloadError> {
         let lower = input_url.to_lowercase();
         
-        // 1. Direct Link Check
+        // 1. Check if it's already a direct link
         if self.is_direct_link(&lower) {
             return Ok(ExtractedMedia {
                 url: input_url.to_string(),
@@ -55,12 +64,7 @@ impl LinkExtractor {
             });
         }
 
-        // 2. YouTube Special Handling (Native Rust)
-        if lower.contains("youtube.com") || lower.contains("youtu.be") {
-            return self.extract_youtube(input_url).await;
-        }
-
-        // 3. Rule-based Extraction (Instagram, etc.)
+        // 2. Try to find a matching platform in our rules
         if let Some(rules) = &self.rules {
             for category in &rules.categories {
                 for platform in &category.platforms {
@@ -68,75 +72,89 @@ impl LinkExtractor {
                         tracing::info!("🔍 Using extraction rules for platform: {}", platform.name);
                         match self.extract_with_rules(input_url, platform).await {
                             Ok(media) => return Ok(media),
-                            Err(e) => tracing::warn!("⚠️ Rule extraction failed for {}: {:?}", platform.name, e),
+                            Err(e) => {
+                                tracing::warn!("⚠️ Rule-based extraction failed for {}: {:?}", platform.name, e);
+                            }
                         }
                     }
                 }
             }
         }
 
-        // 4. Hardcoded Fallbacks
+        // 3. Platform-specific hardcoded fallbacks
         if lower.contains("mediafire.com") {
             return self.extract_mediafire(input_url).await;
         }
 
-        // 5. Generic Fallback
-        self.search_for_media_links(input_url).await
+        // 4. Generic extraction (last resort)
+        match self.generic_extract(input_url).await {
+            Ok(media) => Ok(media),
+            Err(_) => {
+                self.search_for_media_links(input_url).await
+            }
+        }
     }
 
-    /// Native YouTube Extractor (No yt-dlp, Low Memory)
-    async fn extract_youtube(&self, url: &str) -> Result<ExtractedMedia, DownloadError> {
-        tracing::info!("📺 Starting Native YouTube Extraction...");
-        
+    async fn search_for_media_links(&self, url: &str) -> Result<ExtractedMedia, DownloadError> {
+        let headers = self.bypass_system.generate_headers(url);
         let resp = self.client.get(url)
-            .header("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36")
+            .headers(headers)
             .send().await.map_err(DownloadError::NetworkError)?;
-        
         let html = resp.text().await.map_err(|e| DownloadError::Anyhow(e.to_string()))?;
 
-        // Regex to find the JSON blob
-        let re = Regex::new(r"var ytInitialPlayerResponse\s*=\s*(\{.+?\});").unwrap();
+        // Use Static Analysis to find links
+        let selectors = ["a", "source", "video", "audio", "meta"];
+        let found_links = self.static_analyzer.extract_links(&html, &selectors)?;
         
-        let json_str = re.captures(&html)
-            .and_then(|caps| caps.get(1))
-            .map(|m| m.as_str())
-            .ok_or_else(|| DownloadError::Anyhow("Could not find ytInitialPlayerResponse JSON".to_string()))?;
-
-        let json: Value = serde_json::from_str(json_str)
-            .map_err(|e| DownloadError::Anyhow(format!("JSON Parse Error: {}", e)))?;
-
-        // Extract Title
-        let title = json["videoDetails"]["title"].as_str().map(|s| s.to_string());
-
-        // Extract Streaming URL
-        // We look in streamingData -> formats (standard) or adaptiveFormats (higher quality/DASH)
-        if let Some(formats) = json["streamingData"]["formats"].as_array() {
-            for format in formats {
-                // Check if 'url' exists (unprotected video)
-                if let Some(url) = format["url"].as_str() {
-                    tracing::info!("✅ Found unprotected YouTube URL");
-                    return Ok(ExtractedMedia {
-                        url: url.to_string(),
-                        title,
-                        is_direct: true,
-                    });
-                }
-                // If 'signatureCipher' exists, the video is protected.
-                if format.get("signatureCipher").is_some() {
-                    tracing::warn!("🔒 Video is protected by Signature Cipher. This lightweight extractor supports only public videos.");
-                    return Err(DownloadError::Anyhow("Encrypted signature not supported in lightweight mode".to_string()));
-                }
+        for link in found_links {
+            if self.is_direct_link(&link.to_lowercase()) {
+                tracing::info!("✅ Found media link via Static Analysis: {}", link);
+                return Ok(ExtractedMedia {
+                    url: link,
+                    title: None,
+                    is_direct: false,
+                });
             }
         }
 
-        Err(DownloadError::Anyhow("No valid streaming URL found in JSON".to_string()))
+        // Use JS Scraper to reconstruct URLs from variables
+        if let Some(reconstructed) = self.static_analyzer.reconstruct_url_from_js(&html) {
+            tracing::info!("✅ Found media link via JS Scraper reconstruction: {}", reconstructed);
+            return Ok(ExtractedMedia {
+                url: reconstructed,
+                title: None,
+                is_direct: false,
+            });
+        }
+
+        // Fallback to regex for JS-like patterns
+        let patterns = [
+            r#"(https?://[^\s"'<>]+?\.(?:mp4|mkv|mp3|zip|pdf|exe|dmg|rar|7z|tar\.gz|iso|mov|avi)[^\s"'<>]*)"#,
+            r#""url":"(https?://[^"]+)""#,
+            r#""file":"(https?://[^"]+)""#
+        ];
+        let js_links = self.static_analyzer.extract_with_js_patterns(&html, &patterns);
+        if let Some(link) = js_links.first() {
+            tracing::info!("✅ Found media link via JS pattern analysis: {}", link);
+            return Ok(ExtractedMedia {
+                url: link.clone(),
+                title: None,
+                is_direct: false,
+            });
+        }
+
+        Err(DownloadError::Anyhow("Could not find any media links on the page".to_string()))
     }
 
     async fn extract_with_rules(&self, url: &str, platform: &PlatformConfig) -> Result<ExtractedMedia, DownloadError> {
-        let request = self.client.get(url)
-            .header("User-Agent", platform.ua.as_deref().unwrap_or("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"));
-
-        let resp = request.send().await.map_err(DownloadError::NetworkError)?;
+        let mut headers = self.bypass_system.generate_headers(url);
+        if let Some(ua) = &platform.ua {
+            headers.insert(reqwest::header::USER_AGENT, reqwest::header::HeaderValue::from_str(ua).unwrap());
+        }
+        
+        let resp = self.client.get(url)
+            .headers(headers)
+            .send().await.map_err(DownloadError::NetworkError)?;
         let html = resp.text().await.map_err(|e| DownloadError::Anyhow(e.to_string()))?;
 
         for pattern in &platform.patterns {
@@ -153,6 +171,7 @@ impl LinkExtractor {
                         .replace("&amp;", "&")
                         .replace("\\/", "/");
 
+                    tracing::info!("✅ Extracted URL using pattern: {}", pattern);
                     return Ok(ExtractedMedia {
                         url: direct_url,
                         title: None,
@@ -161,7 +180,8 @@ impl LinkExtractor {
                 }
             }
         }
-        Err(DownloadError::Anyhow(format!("Rule extraction failed for {}", platform.name)))
+
+        Err(DownloadError::Anyhow(format!("Could not extract media from {} using provided rules", platform.name)))
     }
 
     fn is_direct_link(&self, url: &str) -> bool {
@@ -173,26 +193,66 @@ impl LinkExtractor {
     }
 
     async fn extract_mediafire(&self, url: &str) -> Result<ExtractedMedia, DownloadError> {
-        // ... (Keep your existing Mediafire logic here)
-        Err(DownloadError::Anyhow("Mediafire extraction placeholder".to_string()))
-    }
-
-    async fn search_for_media_links(&self, url: &str) -> Result<ExtractedMedia, DownloadError> {
+        let headers = self.bypass_system.generate_headers(url);
         let resp = self.client.get(url)
-            .header("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36")
+            .headers(headers)
             .send().await.map_err(DownloadError::NetworkError)?;
         let html = resp.text().await.map_err(|e| DownloadError::Anyhow(e.to_string()))?;
 
-        let media_regex = Regex::new(r#"(https?://[^\s"'<>]+?\.(?:mp4|mkv|mp3|zip|rar)[^\s"'<>]*)"#).unwrap();
-        
-        if let Some(caps) = media_regex.captures(&html) {
-            let direct_url = caps.get(1).unwrap().as_str().to_string();
-            return Ok(ExtractedMedia {
-                url: direct_url,
-                title: None,
-                is_direct: false,
-            });
+        // Mediafire often hides the link in various ways. Let's try multiple patterns.
+        let patterns = [
+            r#"href="(https?://download[^"]+\.mediafire\.com/[^"]+)""#,
+            r#"aria-label="Download file"\s+href="([^"]+)""#,
+            r#"onclick="location\.href='(https?://download[^']+)'""#,
+            r#"https?://download[0-9]+\.mediafire\.com/[^\s"']+"#
+        ];
+
+        for pattern in patterns {
+            let re = Regex::new(pattern).unwrap();
+            if let Some(caps) = re.captures(&html) {
+                let direct_url = if caps.len() > 1 {
+                    caps.get(1).unwrap().as_str().to_string()
+                } else {
+                    caps.get(0).unwrap().as_str().to_string()
+                };
+                tracing::info!("✅ Extracted Mediafire URL: {}", direct_url);
+                return Ok(ExtractedMedia {
+                    url: direct_url,
+                    title: None,
+                    is_direct: false,
+                });
+            }
         }
-        Err(DownloadError::Anyhow("Could not find any media links on the page".to_string()))
+        
+        Err(DownloadError::Anyhow("Could not find Mediafire download link".to_string()))
+    }
+
+    async fn generic_extract(&self, url: &str) -> Result<ExtractedMedia, DownloadError> {
+        let headers = self.bypass_system.generate_headers(url);
+        let resp = self.client.head(url)
+            .headers(headers)
+            .send().await;
+            
+        if let Ok(head) = resp {
+            if let Some(ct) = head.headers().get(reqwest::header::CONTENT_TYPE) {
+                let ct_str = ct.to_str().unwrap_or("");
+                if ct_str.contains("text/html") {
+                    return Err(DownloadError::Anyhow("URL points to HTML, need extraction".to_string()));
+                }
+                if ct_str.contains("video/") || ct_str.contains("audio/") || ct_str.contains("application/") {
+                    return Ok(ExtractedMedia {
+                        url: url.to_string(),
+                        title: None,
+                        is_direct: true,
+                    });
+                }
+            }
+        }
+
+        Ok(ExtractedMedia {
+            url: url.to_string(),
+            title: None,
+            is_direct: true,
+        })
     }
 }
