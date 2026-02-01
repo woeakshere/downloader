@@ -19,13 +19,16 @@ impl MemoryStrategy {
 
 #[async_trait::async_trait]
 impl StrategyExecutor for MemoryStrategy {
-    async fn execute(&self, url: &str) -> Result<DownloadResult> {
+    // UPDATED: Implementation accepts referer
+    async fn execute(&self, url: &str, referer: Option<&str>) -> Result<DownloadResult> {
         let start = std::time::Instant::now();
         let ua = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36";
         
+        let ref_header = referer.unwrap_or(url);
+
         let res = self.client.get(url)
             .header("User-Agent", ua)
-            .header("Referer", url)
+            .header("Referer", ref_header) // UPDATED
             .send().await?;
         
         if !res.status().is_success() {
