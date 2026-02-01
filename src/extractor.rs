@@ -164,15 +164,14 @@ impl LinkExtractor {
                         caps.get(0).unwrap().as_str().to_string()
                     };
 
-                    // FIX: Ensure clean decoding of JSON escaped chars
                     direct_url = direct_url
                         .replace("\\u0026", "&")
-                        .replace("&amp;", "&")
+                        .replace("&", "&")
                         .replace("\\/", "/");
 
                     tracing::info!("✅ Extracted URL using pattern: {}", pattern);
                     
-                    // FIX: Hardcode the correct Referer for YouTube to bypass 403
+                    // FIX: Use standard YouTube referer to bypass 403
                     let referer = if platform.name.eq_ignore_ascii_case("YouTube") {
                          Some("https://www.youtube.com/".to_string())
                     } else {
@@ -265,4 +264,4 @@ impl LinkExtractor {
             referer: None,
         })
     }
-}
+        }
