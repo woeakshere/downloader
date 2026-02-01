@@ -146,7 +146,7 @@ impl LeechEngine {
         
         let head_result = self.client.head(url.as_str()).send().await;
         
-        let (len, ranges) = match head_result {
+        let (len, ranges, is_html) = match head_result {
             Ok(head) => {
                 let len = head.headers().get(reqwest::header::CONTENT_LENGTH)
                     .and_then(|v| v.to_str().ok())
@@ -157,10 +157,23 @@ impl LeechEngine {
                     .and_then(|v| v.to_str().ok())
                     .map(|v| v == "bytes")
                     .unwrap_or(false);
-                (len, ranges)
+
+                let ct = head.headers().get(reqwest::header::CONTENT_TYPE)
+                    .and_then(|v| v.to_str().ok())
+                    .unwrap_or("");
+                let is_html = ct.contains("text/html");
+
+                (len, ranges, is_html)
             },
-            Err(_) => (0, false),
+            Err(_) => (0, false, false),
         };
+
+        if is_html {
+            tracing::warn!("⚠️ URL points to an HTML page, not a direct media file: {}", url);
+            // We could return an error here, but let's try StreamToDisk as fallback
+            // or maybe the user actually wants the HTML? 
+            // Given the problem description, they probably don't.
+        }
             
         if len == 0 { 
             Ok(Strategy::StreamToDisk) 

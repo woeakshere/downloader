@@ -1,15 +1,16 @@
-cat > src/config.rs <<'EOF'
-use serde::{Deserialize, Serialize};
 use std::time::Duration;
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, serde::Serialize, serde::Deserialize)]
 pub enum Strategy {
+    /// Small files (< 5MB) kept in memory.
     MemoryBuffered,
+    /// Medium/Linear files streamed to disk.
     StreamToDisk,
+    /// Large files (> 10MB) downloaded in parallel chunks.
     ParallelChunks,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
 pub struct DownloadConfig {
     pub max_concurrent_chunks: usize,
     pub buffer_pool_size: usize,
@@ -26,13 +27,12 @@ impl Default for DownloadConfig {
         Self {
             max_concurrent_chunks: 8,
             buffer_pool_size: 64,
-            chunk_size: 128 * 1024,
+            chunk_size: 128 * 1024, // 128KB chunks
             timeout: Duration::from_secs(30),
             pool_idle_timeout: Some(Duration::from_secs(90)),
             max_retries: 3,
-            user_agent: "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36".to_string(),
+            user_agent: "LeechEngine/1.0.0 (Faster, Less-Memory Downloader)".to_string(),
             debug: false,
         }
     }
 }
-EOF
