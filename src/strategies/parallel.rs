@@ -48,21 +48,24 @@ impl ParallelStrategy {
 
 #[async_trait::async_trait]
 impl StrategyExecutor for ParallelStrategy {
-    async fn execute(&self, url: &str) -> Result<DownloadResult> {
+    // UPDATED: Implementation accepts referer
+    async fn execute(&self, url: &str, referer: Option<&str>) -> Result<DownloadResult> {
         let start_time = std::time::Instant::now();
         let ua = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36";
         
+        let ref_header = referer.unwrap_or(url);
+
         // Use HEAD to get size and check range support
         let head_resp = self.client.head(url)
             .header("User-Agent", ua)
-            .header("Referer", url)
+            .header("Referer", ref_header) // UPDATED
             .send().await?;
             
         if !head_resp.status().is_success() {
             // Fallback to GET if HEAD is not allowed
             let get_resp = self.client.get(url)
                 .header("User-Agent", ua)
-                .header("Referer", url)
+                .header("Referer", ref_header) // UPDATED
                 .header("Range", "bytes=0-0")
                 .send().await?;
             
@@ -83,7 +86,7 @@ impl StrategyExecutor for ParallelStrategy {
                 })
                 .ok_or_else(|| anyhow::anyhow!("Content-Length missing"))?;
             
-            self.run_parallel(url, total_size, start_time).await
+            self.run_parallel(url, total_size, start_time, ref_header).await
         } else {
             let total_size = head_resp.headers()
                 .get(header::CONTENT_LENGTH)
@@ -101,13 +104,14 @@ impl StrategyExecutor for ParallelStrategy {
                 return Err(anyhow::anyhow!("Server does not support range requests"));
             }
             
-            self.run_parallel(url, total_size, start_time).await
+            self.run_parallel(url, total_size, start_time, ref_header).await
         }
     }
 }
 
 impl ParallelStrategy {
-    async fn run_parallel(&self, url: &str, total_size: u64, start_time: std::time::Instant) -> Result<DownloadResult> {
+    // UPDATED: Helper now accepts ref_header string
+    async fn run_parallel(&self, url: &str, total_size: u64, start_time: std::time::Instant, ref_header: &str) -> Result<DownloadResult> {
         let (_initial_file, temp_path) = self.create_temp_file(total_size).await?;
         drop(_initial_file);
         
@@ -123,6 +127,9 @@ impl ParallelStrategy {
         let mut handles = Vec::new();
         let ua = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36";
         
+        // Clone referer for use in loop
+        let referer_str = ref_header.to_string();
+
         for i in 0..chunk_count {
             let start = i * chunk_size;
             if start >= total_size { break; }
@@ -133,6 +140,7 @@ impl ParallelStrategy {
             let client = self.client.clone();
             let path = temp_path.clone();
             let pool = self.buffer_pool.clone();
+            let referer_val = referer_str.clone(); // Clone for closure
             
             handles.push(tokio::spawn(async move {
                 let _p = permit;
@@ -142,7 +150,7 @@ impl ParallelStrategy {
                 let res = client.get(&url)
                     .header(header::RANGE, format!("bytes={}-{}", start, end))
                     .header("User-Agent", ua)
-                    .header("Referer", &url)
+                    .header("Referer", referer_val) // UPDATED: Use referer
                     .send()
                     .await?;
                 
