@@ -11,6 +11,8 @@ pub struct ExtractedMedia {
     pub url: String,
     pub title: Option<String>,
     pub is_direct: bool,
+    // UPDATED: Added referer field to carry the correct header
+    pub referer: Option<String>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -61,6 +63,7 @@ impl LinkExtractor {
                 url: input_url.to_string(),
                 title: None,
                 is_direct: true,
+                referer: None,
             });
         }
 
@@ -113,6 +116,7 @@ impl LinkExtractor {
                     url: link,
                     title: None,
                     is_direct: false,
+                    referer: Some(url.to_string()),
                 });
             }
         }
@@ -124,6 +128,7 @@ impl LinkExtractor {
                 url: reconstructed,
                 title: None,
                 is_direct: false,
+                referer: Some(url.to_string()),
             });
         }
 
@@ -140,6 +145,7 @@ impl LinkExtractor {
                 url: link.clone(),
                 title: None,
                 is_direct: false,
+                referer: Some(url.to_string()),
             });
         }
 
@@ -172,10 +178,19 @@ impl LinkExtractor {
                         .replace("\\/", "/");
 
                     tracing::info!("✅ Extracted URL using pattern: {}", pattern);
+                    
+                    // UPDATED: Force specific referers for known picky platforms
+                    let referer = if platform.name.eq_ignore_ascii_case("YouTube") {
+                         Some("https://www.youtube.com/".to_string())
+                    } else {
+                         Some(url.to_string())
+                    };
+
                     return Ok(ExtractedMedia {
                         url: direct_url,
                         title: None,
                         is_direct: false,
+                        referer,
                     });
                 }
             }
@@ -199,7 +214,6 @@ impl LinkExtractor {
             .send().await.map_err(DownloadError::NetworkError)?;
         let html = resp.text().await.map_err(|e| DownloadError::Anyhow(e.to_string()))?;
 
-        // Mediafire often hides the link in various ways. Let's try multiple patterns.
         let patterns = [
             r#"href="(https?://download[^"]+\.mediafire\.com/[^"]+)""#,
             r#"aria-label="Download file"\s+href="([^"]+)""#,
@@ -220,6 +234,7 @@ impl LinkExtractor {
                     url: direct_url,
                     title: None,
                     is_direct: false,
+                    referer: Some(url.to_string()),
                 });
             }
         }
@@ -244,6 +259,7 @@ impl LinkExtractor {
                         url: url.to_string(),
                         title: None,
                         is_direct: true,
+                        referer: None,
                     });
                 }
             }
@@ -253,6 +269,7 @@ impl LinkExtractor {
             url: url.to_string(),
             title: None,
             is_direct: true,
+            referer: None,
         })
     }
-}
+            }
