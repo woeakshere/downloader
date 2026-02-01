@@ -77,7 +77,8 @@ impl LeechEngine {
             self.analyze_url(&parsed_url).await.unwrap_or(Strategy::StreamToDisk)
         };
         
-        let result = self.execute_with_fallback(url, initial_strategy).await;
+        // UPDATED: Pass input_url as the referer source
+        let result = self.execute_with_fallback(url, Some(input_url), initial_strategy).await;
         
         if let Ok(ref res) = result {
              self.metrics.record_download(url, res.size, start_time.elapsed(), &res.strategy_enum);
@@ -90,7 +91,8 @@ impl LeechEngine {
         result
     }
 
-    async fn execute_with_fallback(&self, url: &str, mut strategy: Strategy) -> Result<DownloadResult, DownloadError> {
+    // UPDATED: Function signature accepts referer
+    async fn execute_with_fallback(&self, url: &str, referer: Option<&str>, mut strategy: Strategy) -> Result<DownloadResult, DownloadError> {
         let mut total_attempts = 0;
         let max_retries = self.config.max_retries;
 
@@ -104,7 +106,8 @@ impl LeechEngine {
 
             tracing::info!("🔄 Attempt {} using Strategy: {:?}", total_attempts, strategy);
 
-            match executor.execute(url).await {
+            // UPDATED: Pass referer to execute
+            match executor.execute(url, referer).await {
                 Ok(mut res) => {
                     res.strategy_enum = strategy; 
                     return Ok(res);
@@ -181,9 +184,6 @@ impl LeechEngine {
 
         if is_html {
             tracing::warn!("⚠️ URL points to an HTML page, not a direct media file: {}", url);
-            // We could return an error here, but let's try StreamToDisk as fallback
-            // or maybe the user actually wants the HTML? 
-            // Given the problem description, they probably don't.
         }
             
         if len == 0 { 
