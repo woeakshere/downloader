@@ -62,10 +62,14 @@ impl BypassSystem {
         headers.insert("Sec-Ch-Ua", HeaderValue::from_static("\"Not_A Brand\";v=\"8\", \"Chromium\";v=\"120\", \"Google Chrome\";v=\"120\""));
         headers.insert("Sec-Ch-Ua-Mobile", HeaderValue::from_static("?0"));
         headers.insert("Sec-Ch-Ua-Platform", HeaderValue::from_static("\"Windows\""));
-        headers.insert("Sec-Fetch-Dest", HeaderValue::from_static("document"));
-        headers.insert("Sec-Fetch-Mode", HeaderValue::from_static("navigate"));
-        headers.insert("Sec-Fetch-Site", HeaderValue::from_static("none"));
-        headers.insert("Sec-Fetch-User", HeaderValue::from_static("?1"));
+        
+        // FIX: Removed strict Fetch metadata headers (Dest/Mode/Site) 
+        // These often cause 403s when downloading video files because they imply "Document Navigation"
+        // headers.insert("Sec-Fetch-Dest", HeaderValue::from_static("document"));
+        // headers.insert("Sec-Fetch-Mode", HeaderValue::from_static("navigate"));
+        // headers.insert("Sec-Fetch-Site", HeaderValue::from_static("none"));
+        // headers.insert("Sec-Fetch-User", HeaderValue::from_static("?1"));
+        
         headers.insert("Upgrade-Insecure-Requests", HeaderValue::from_static("1"));
         
         // Additional bypass headers for ISP/Proxy/Anonymizer detection
