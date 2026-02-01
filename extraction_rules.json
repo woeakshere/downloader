@@ -10,16 +10,18 @@
             "property=\"og:video\" content=\"([^\"]+)\"",
             "\"video_url\":\"([^\"]+)\"",
             "\"video_dash_manifest\":\"([^\"]+)\"",
-            "display_url\":\"([^\"]+)\""
+            "xdt_shortcode_media\":\\{\"video_url\":\"([^\"]+)\"",
+            "\"display_url\":\"([^\"]+)\""
           ],
-          "ua": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/119.0.0.0 Safari/537.36"
+          "ua": "Mozilla/5.0 (iPhone; CPU iPhone OS 16_6 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/16.6 Mobile/15E148 Safari/604.1"
         },
         {
           "name": "TikTok",
           "domains": ["tiktok.com"],
           "patterns": [
             "\"downloadAddr\":\"([^\"]+)\"",
-            "\"playAddr\":\"([^\"]+)\""
+            "\"playAddr\":\"([^\"]+)\"",
+            "\"url\":\"(https://v[0-9]+-webapp-prime\\.tiktok\\.com/[^\"]+)\""
           ],
           "ua": "Mozilla/5.0 (iPhone; CPU iPhone OS 14_8 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/14.1.2 Mobile/15E148 Safari/604.1"
         }
@@ -29,21 +31,23 @@
       "name": "Video Platforms",
       "platforms": [
         {
-          "name": "YouTube",
-          "domains": ["youtube.com", "youtu.be"],
+          "name": "YouTube Proxy",
+          "domains": ["googleusercontent.com/youtube"],
           "patterns": [
             "\"url\":\"(https://[^\"]+googlevideo\\.com/[^\"]+)\"",
             "\"base_url\":\"(https://[^\"]+googlevideo\\.com/[^\"]+)\"",
-            "\"signatureCipher\":\"([^\"]+)\""
+            "\"adaptiveFormats\":\\[\\{.*?\"url\":\"(https://[^\"]+googlevideo\\.com/[^\"]+)\"",
+            "\"formats\":\\[\\{.*?\"url\":\"(https://[^\"]+googlevideo\\.com/[^\"]+)\""
           ],
-          "ua": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/119.0.0.0 Safari/537.36"
+          "ua": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
         },
         {
           "name": "Dailymotion",
           "domains": ["dailymotion.com"],
           "patterns": [
             "\"video/mp4\",\"url\":\"([^\"]+)\"",
-            "\"url\":\"([^\"]+m3u8[^\"]+)\""
+            "\"url\":\"([^\"]+m3u8[^\"]+)\"",
+            "\"qualities\":\\{.*?\"url\":\"([^\"]+)\""
           ]
         }
       ]
@@ -57,7 +61,7 @@
           "patterns": [
             "file: '([^']+)'",
             "\"file\":\"([^\"]+)\"",
-            "sources:\\\\\\[\\\\{file:\"([^\"]+)\""
+            "sources:\\[\\{file:\"([^\"]+)\""
           ]
         }
       ]
