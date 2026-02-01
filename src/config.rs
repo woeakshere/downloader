@@ -31,7 +31,7 @@ impl Default for DownloadConfig {
             timeout: Duration::from_secs(30),
             pool_idle_timeout: Some(Duration::from_secs(90)),
             max_retries: 3,
-            user_agent: "LeechEngine/1.0.0 (Faster, Less-Memory Downloader)".to_string(),
+            user_agent: "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36".to_string(),
             debug: false,
         }
     }

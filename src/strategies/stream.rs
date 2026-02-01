@@ -24,7 +24,12 @@ impl StreamStrategy {
 impl StrategyExecutor for StreamStrategy {
     async fn execute(&self, url: &str) -> Result<DownloadResult> {
         let start = std::time::Instant::now();
-        let res = self.client.get(url).send().await?;
+        let ua = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36";
+        
+        let res = self.client.get(url)
+            .header("User-Agent", ua)
+            .header("Referer", url)
+            .send().await?;
         
         if !res.status().is_success() {
             return Err(anyhow::anyhow!("HTTP Status: {}", res.status()));
@@ -45,12 +50,6 @@ impl StrategyExecutor for StreamStrategy {
 
         let mut stream = res.bytes_stream();
         let mut size = 0;
-        let buf = self.buffer_pool.acquire(64 * 1024);
-        // We don't actually use the buffer pool's BytesMut here for write_all because
-        // reqwest returns its own Bytes, but we acquired it to "reserve" memory if needed
-        // and to keep the interface consistent. 
-        // A better way would be to copy stream chunks into the buffer then write,
-        // but write_all(&bytes) is already efficient.
         
         while let Some(chunk) = stream.next().await {
             let c = chunk?;
@@ -58,7 +57,6 @@ impl StrategyExecutor for StreamStrategy {
             size += c.len() as u64;
         }
         
-        self.buffer_pool.release(buf);
         file.flush().await?;
         
         Ok(DownloadResult { 

@@ -21,7 +21,12 @@ impl MemoryStrategy {
 impl StrategyExecutor for MemoryStrategy {
     async fn execute(&self, url: &str) -> Result<DownloadResult> {
         let start = std::time::Instant::now();
-        let res = self.client.get(url).send().await?;
+        let ua = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36";
+        
+        let res = self.client.get(url)
+            .header("User-Agent", ua)
+            .header("Referer", url)
+            .send().await?;
         
         if !res.status().is_success() {
             return Err(anyhow::anyhow!("HTTP Status: {}", res.status()));
@@ -34,7 +39,6 @@ impl StrategyExecutor for MemoryStrategy {
         data.extend_from_slice(&full);
         
         let data_vec = data.to_vec();
-        // Return the buffer to the pool
         self.buffer_pool.release(data);
         
         Ok(DownloadResult { 

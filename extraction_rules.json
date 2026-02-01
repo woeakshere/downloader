@@ -10,9 +10,11 @@
             "property=\"og:video\" content=\"([^\"]+)\"",
             "\"video_url\":\"([^\"]+)\"",
             "\"video_dash_manifest\":\"([^\"]+)\"",
-            "display_url\":\"([^\"]+)\""
+            "display_url\":\"([^\"]+)\"",
+            "https?://[^\"]+fbcdn\\.net/[^\"]+\\.mp4[^\"]*",
+            "\"xdt_shortcode_media\":\\{\"video_url\":\"([^\"]+)\""
           ],
-          "ua": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/119.0.0.0 Safari/537.36"
+          "ua": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
         },
         {
           "name": "Facebook",
@@ -20,7 +22,9 @@
           "patterns": [
             "hd_src:\"([^\"]+)\"",
             "sd_src:\"([^\"]+)\"",
-            "video_url\":\"([^\"]+)\""
+            "video_url\":\"([^\"]+)\"",
+            "\"browser_native_sd_url\":\"([^\"]+)\"",
+            "\"browser_native_hd_url\":\"([^\"]+)\""
           ]
         },
         {
@@ -28,9 +32,18 @@
           "domains": ["tiktok.com"],
           "patterns": [
             "\"downloadAddr\":\"([^\"]+)\"",
-            "\"playAddr\":\"([^\"]+)\""
+            "\"playAddr\":\"([^\"]+)\"",
+            "\"play_addr\":\\{\"url_list\":\\[\"([^\"]+)\""
           ],
           "ua": "Mozilla/5.0 (iPhone; CPU iPhone OS 14_8 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/14.1.2 Mobile/15E148 Safari/604.1"
+        },
+        {
+          "name": "Twitter/X",
+          "domains": ["twitter.com", "x.com"],
+          "patterns": [
+            "\"video_url\":\"([^\"]+)\"",
+            "https?://video\\.twimg\\.com/[^\"]+\\.mp4"
+          ]
         }
       ]
     },
@@ -41,41 +54,21 @@
           "name": "YouTube",
           "domains": ["youtube.com", "youtu.be"],
           "patterns": [
+            "\"url\":\"(https?://[^\"]+videoplayback[^\"]+)\"",
             "\"url\":\"(https?://[^\"]+googlevideo\\.com/[^\"]+)\"",
             "\"base_url\":\"(https?://[^\"]+googlevideo\\.com/[^\"]+)\"",
             "\"url\":\"(https?://[^\"]+)\",\"mimeType\":\"video/[^\"]+\"",
             "\"signatureCipher\":\"([^\"]+)\""
           ],
-          "ua": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+          "ua": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
         },
         {
           "name": "Vimeo",
           "domains": ["vimeo.com"],
           "patterns": [
             "\"url\":\"([^\"]+mp4[^\"]+)\"",
-            "\"profile\":[0-9]+,\"url\":\"([^\"]+)\""
-          ]
-        },
-        {
-          "name": "Dailymotion",
-          "domains": ["dailymotion.com"],
-          "patterns": [
-            "\"video/mp4\",\"url\":\"([^\"]+)\"",
-            "\"url\":\"([^\"]+m3u8[^\"]+)\""
-          ]
-        }
-      ]
-    },
-    {
-      "name": "Anime & Streaming",
-      "platforms": [
-        {
-          "name": "Generic Streaming",
-          "domains": ["gogoanime", "aniwave", "9anime"],
-          "patterns": [
-            "file: '([^']+)'",
-            "\"file\":\"([^\"]+)\"",
-            "sources:\\\\\\[\\\\{file:\"([^\"]+)\""
+            "\"profile\":[0-9]+,\"url\":\"([^\"]+)\"",
+            "https?://player\\.vimeo\\.com/video/[0-9]+/config"
           ]
         }
       ]
@@ -87,9 +80,10 @@
           "name": "Mediafire",
           "domains": ["mediafire.com"],
           "patterns": [
-            "href=\"(https?://download[^\"]+)\"",
+            "https?://download[0-9]+\\.mediafire\\.com/[^\"]+",
+            "href=\"(https?://download[^\"]+\\.mediafire\\.com/[^\"]+)\"",
             "aria-label=\"Download file\"\\s+href=\"([^\"]+)\"",
-            "https?://download[^\"]+\\.mediafire\\.com/[^\"]+"
+            "onclick=\"location\\.href='(https?://download[^\"]+)'\""
           ]
         },
         {
@@ -97,6 +91,21 @@
           "domains": ["mega.nz"],
           "patterns": [
             "\"g\":\"([^\"]+)\""
+          ]
+        },
+        {
+          "name": "Dropbox",
+          "domains": ["dropbox.com"],
+          "patterns": [
+            "https?://[^\"]+dropbox\\.com/[^\"]+\\?dl=1",
+            "\"(https?://[^\"]+dropbox\\.com/scl/fi/[^\"]+)\""
+          ]
+        },
+        {
+          "name": "Google Drive",
+          "domains": ["drive.google.com"],
+          "patterns": [
+            "https?://drive\\.google\\.com/uc\\?export=download&id=[a-zA-Z0-9_-]+"
           ]
         }
       ]

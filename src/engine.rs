@@ -144,7 +144,9 @@ impl LeechEngine {
             if let Some(cached) = self.strategy_cache.write().get(d) { return Ok(*cached); }
         }
         
-        let head_result = self.client.head(url.as_str()).send().await;
+        let head_result = self.client.head(url.as_str())
+            .header("User-Agent", &self.config.user_agent)
+            .send().await;
         
         let (len, ranges, is_html) = match head_result {
             Ok(head) => {
