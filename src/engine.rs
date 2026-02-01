@@ -77,8 +77,11 @@ impl LeechEngine {
             self.analyze_url(&parsed_url).await.unwrap_or(Strategy::StreamToDisk)
         };
         
-        // UPDATED: Pass input_url as the referer source
-        let result = self.execute_with_fallback(url, Some(input_url), initial_strategy).await;
+        // UPDATED: Use the specific referer found by Extractor (e.g. youtube.com), 
+        // fallback to input_url if none provided.
+        let final_referer = media.referer.as_deref().or(Some(input_url));
+
+        let result = self.execute_with_fallback(url, final_referer, initial_strategy).await;
         
         if let Ok(ref res) = result {
              self.metrics.record_download(url, res.size, start_time.elapsed(), &res.strategy_enum);
@@ -91,7 +94,6 @@ impl LeechEngine {
         result
     }
 
-    // UPDATED: Function signature accepts referer
     async fn execute_with_fallback(&self, url: &str, referer: Option<&str>, mut strategy: Strategy) -> Result<DownloadResult, DownloadError> {
         let mut total_attempts = 0;
         let max_retries = self.config.max_retries;
@@ -106,7 +108,6 @@ impl LeechEngine {
 
             tracing::info!("🔄 Attempt {} using Strategy: {:?}", total_attempts, strategy);
 
-            // UPDATED: Pass referer to execute
             match executor.execute(url, referer).await {
                 Ok(mut res) => {
                     res.strategy_enum = strategy; 
