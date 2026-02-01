@@ -5,7 +5,6 @@ edition = "2021"
 
 [dependencies]
 tokio = { version = "1.35", features = ["full"] }
-# FIX: 'native-tls' handles unexpected server closes better than rustls
 reqwest = { version = "0.12", default-features = false, features = ["native-tls", "stream", "gzip", "json", "socks", "cookies"] }
 bytes = "1.5"
 tokio-util = { version = "0.7", features = ["io"] }
@@ -28,6 +27,8 @@ tower-http = { version = "0.5", features = ["trace"] }
 lol_html = "0.4"
 trust-dns-resolver = "0.23"
 chrono = "0.4"
+# FIX: Pin 'time' to prevent MSRV errors with Rust 1.85/1.83
+time = "=0.3.36"
 
 [dev-dependencies]
 tempfile = "3.8"
