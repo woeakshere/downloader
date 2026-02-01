@@ -11,7 +11,6 @@ pub struct ExtractedMedia {
     pub url: String,
     pub title: Option<String>,
     pub is_direct: bool,
-    // UPDATED: Added referer field to carry the correct header
     pub referer: Option<String>,
 }
 
@@ -57,7 +56,6 @@ impl LinkExtractor {
     pub async fn extract(&self, input_url: &str) -> Result<ExtractedMedia, DownloadError> {
         let lower = input_url.to_lowercase();
         
-        // 1. Check if it's already a direct link
         if self.is_direct_link(&lower) {
             return Ok(ExtractedMedia {
                 url: input_url.to_string(),
@@ -67,7 +65,6 @@ impl LinkExtractor {
             });
         }
 
-        // 2. Try to find a matching platform in our rules
         if let Some(rules) = &self.rules {
             for category in &rules.categories {
                 for platform in &category.platforms {
@@ -84,12 +81,10 @@ impl LinkExtractor {
             }
         }
 
-        // 3. Platform-specific hardcoded fallbacks
         if lower.contains("mediafire.com") {
             return self.extract_mediafire(input_url).await;
         }
 
-        // 4. Generic extraction (last resort)
         match self.generic_extract(input_url).await {
             Ok(media) => Ok(media),
             Err(_) => {
@@ -105,7 +100,6 @@ impl LinkExtractor {
             .send().await.map_err(DownloadError::NetworkError)?;
         let html = resp.text().await.map_err(|e| DownloadError::Anyhow(e.to_string()))?;
 
-        // Use Static Analysis to find links
         let selectors = ["a", "source", "video", "audio", "meta"];
         let found_links = self.static_analyzer.extract_links(&html, &selectors)?;
         
@@ -121,7 +115,6 @@ impl LinkExtractor {
             }
         }
 
-        // Use JS Scraper to reconstruct URLs from variables
         if let Some(reconstructed) = self.static_analyzer.reconstruct_url_from_js(&html) {
             tracing::info!("✅ Found media link via JS Scraper reconstruction: {}", reconstructed);
             return Ok(ExtractedMedia {
@@ -132,7 +125,6 @@ impl LinkExtractor {
             });
         }
 
-        // Fallback to regex for JS-like patterns
         let patterns = [
             r#"(https?://[^\s"'<>]+?\.(?:mp4|mkv|mp3|zip|pdf|exe|dmg|rar|7z|tar\.gz|iso|mov|avi)[^\s"'<>]*)"#,
             r#""url":"(https?://[^"]+)""#,
@@ -172,6 +164,7 @@ impl LinkExtractor {
                         caps.get(0).unwrap().as_str().to_string()
                     };
 
+                    // FIX: Ensure clean decoding of JSON escaped chars
                     direct_url = direct_url
                         .replace("\\u0026", "&")
                         .replace("&amp;", "&")
@@ -179,7 +172,7 @@ impl LinkExtractor {
 
                     tracing::info!("✅ Extracted URL using pattern: {}", pattern);
                     
-                    // UPDATED: Force specific referers for known picky platforms
+                    // FIX: Hardcode the correct Referer for YouTube to bypass 403
                     let referer = if platform.name.eq_ignore_ascii_case("YouTube") {
                          Some("https://www.youtube.com/".to_string())
                     } else {
@@ -272,4 +265,4 @@ impl LinkExtractor {
             referer: None,
         })
     }
-            }
+}
