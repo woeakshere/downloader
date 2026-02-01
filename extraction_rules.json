@@ -1,0 +1,66 @@
+{
+  "categories": [
+    {
+      "name": "Social Media",
+      "platforms": [
+        {
+          "name": "Instagram",
+          "domains": ["instagram.com"],
+          "patterns": [
+            "property=\"og:video\" content=\"([^\"]+)\"",
+            "\"video_url\":\"([^\"]+)\"",
+            "\"video_dash_manifest\":\"([^\"]+)\"",
+            "display_url\":\"([^\"]+)\""
+          ],
+          "ua": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/119.0.0.0 Safari/537.36"
+        },
+        {
+          "name": "TikTok",
+          "domains": ["tiktok.com"],
+          "patterns": [
+            "\"downloadAddr\":\"([^\"]+)\"",
+            "\"playAddr\":\"([^\"]+)\""
+          ],
+          "ua": "Mozilla/5.0 (iPhone; CPU iPhone OS 14_8 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/14.1.2 Mobile/15E148 Safari/604.1"
+        }
+      ]
+    },
+    {
+      "name": "Video Platforms",
+      "platforms": [
+        {
+          "name": "YouTube",
+          "domains": ["youtube.com", "youtu.be"],
+          "patterns": [
+            "\"url\":\"(https://[^\"]+googlevideo\\.com/[^\"]+)\"",
+            "\"base_url\":\"(https://[^\"]+googlevideo\\.com/[^\"]+)\"",
+            "\"signatureCipher\":\"([^\"]+)\""
+          ],
+          "ua": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/119.0.0.0 Safari/537.36"
+        },
+        {
+          "name": "Dailymotion",
+          "domains": ["dailymotion.com"],
+          "patterns": [
+            "\"video/mp4\",\"url\":\"([^\"]+)\"",
+            "\"url\":\"([^\"]+m3u8[^\"]+)\""
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Anime & Streaming",
+      "platforms": [
+        {
+          "name": "Generic Streaming",
+          "domains": ["gogoanime", "aniwave", "9anime"],
+          "patterns": [
+            "file: '([^']+)'",
+            "\"file\":\"([^\"]+)\"",
+            "sources:\\\\\\[\\\\{file:\"([^\"]+)\""
+          ]
+        }
+      ]
+    }
+  ]
+}
