@@ -7,5 +7,6 @@ use crate::error::DownloadResult;
 
 #[async_trait]
 pub trait StrategyExecutor: Send + Sync {
-    async fn execute(&self, url: &str) -> Result<DownloadResult>;
+    // UPDATED: Added referer argument to the trait definition
+    async fn execute(&self, url: &str, referer: Option<&str>) -> Result<DownloadResult>;
 }
